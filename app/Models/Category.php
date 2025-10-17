@@ -9,13 +9,15 @@ class Category extends Model
 {
     use HasFactory;
     protected $table = 'categories';
-    protected $fillable = [
-        'name',
-        'book_type'
-    ];
+    protected $fillable = ['name'];
 
     public function book()
     {
         return $this->hasMany(Book::class, 'category_id');
+    }
+
+    public function bookTypes()
+    {
+        return $this->hasMany(BookType::class, 'category_id');
     }
 }

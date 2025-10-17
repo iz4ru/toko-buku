@@ -14,17 +14,32 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $credentials = $request->only('email', 'password');
+        $credentials = $request->validate(
+            [
+                'email' => 'required|email',
+                'password' => 'required',
+            ],
+            [
+                'email.required' => 'Email dibutuhkan.',
+                'email.email' => 'Silakan masukkan email dengan benar.',
+                'password.required' => 'Password dibutuhkan.',
+            ],
+        );
 
-        if (Auth::attempt($credentials))
-        {
+        if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
             $role = Auth::user()->role;
             return match ($role) {
-                'admin' => redirect()->route('admin.dashboard'),
-                'cashier' => redirect()->route('cashier.dashboard'),
-                'owner' => redirect()->route('owner.dashboard'),
+                'admin' => redirect()
+                    ->route('admin.dashboard')
+                    ->with('success', 'Login berhasil, selamat datang kembali ' . Auth::user()->name . ' !'),
+                'cashier' => redirect()
+                    ->route('cashier.dashboard')
+                    ->with('success', 'Login berhasil, selamat datang kembali ' . Auth::user()->name . ' !'),
+                'owner' => redirect()
+                    ->route('owner.dashboard')
+                    ->with('success', 'Login berhasil, selamat datang kembali ' . Auth::user()->name . ' !'),
                 default => abort(403, 'Unauthorized Action'),
             };
         }

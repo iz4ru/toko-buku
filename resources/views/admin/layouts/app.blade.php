@@ -27,14 +27,19 @@
     </style>
     @stack('styles')
 
-    <!-- Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
 </head>
 
 <body class="bg-[#FAFAFA] overflow-x-hidden">
 
-    @yield('content')
+    <div>
+        @include('admin.layouts.partials.header')
+        @include('admin.layouts.partials.sidebar')
+    </div>
+
+    <div class="p-4 sm:ml-64">
+        @yield('content')
+        @include('admin.layouts.partials.footer')
+    </div>
 
     @stack('scripts')
 
@@ -79,6 +84,21 @@
         });
     </script>
 
+    <!-- Flowbite -->
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+
+    <!-- Apex Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <!-- Flowbite Simpe Datatables -->
+    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.3"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- SweetAlert -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
 </body>
 
 </html>

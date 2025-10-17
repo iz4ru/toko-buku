@@ -14,15 +14,18 @@ return new class extends Migration
         Schema::create('books', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('category_id');
+            $table->unsignedBigInteger('book_type_id');
             $table->string('book_code')->unique();
             $table->string('title');
             $table->string('publisher');
             $table->string('author');
-            $table->year('publication_year');
+            $table->string('publication_year', 7);
             $table->string('book_cover');
+            $table->text('description');
             $table->timestamps();
             
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('cascade');
+            $table->foreign('book_type_id')->references('id')->on('book_types')->onDelete('cascade');
         });
 
     }
