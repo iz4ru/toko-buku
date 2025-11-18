@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends('owner.layouts.app')
 @section('title', 'Papery | Kelola Buku')
 @section('content')
 
@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <a href="{{ route('admin.book.create') }}"
+        <a href="{{ route('owner.book.create') }}"
             class="inline-flex cursor-pointer items-center px-5 py-2.5 mt-4 gap-2 text-sm font-medium text-center text-white bg-[#1779FC] rounded-lg focus:ring-4 focus:ring-blue-300 hover:bg-[#DEECFF] hover:text-[#1779FC] active:scale-[0.98]
         transition-all duration-300 ease-out">
             <i class="fa-solid fa-plus text-sm"></i>
@@ -139,11 +139,11 @@
 
                                     <p class="font-bold text-gray-300">|</p>
 
-                                    <a href="{{ route('admin.book.edit', $book->id) }}"
+                                    <a href="{{ route('owner.book.edit', $book->id) }}"
                                         class="text-[#1776FC] hover:underline font-medium focus:outline-none">Edit</a>
                                     <p class="font-bold text-gray-300">|</p>
 
-                                    <form action="{{ route('admin.book.destroy', $book->id) }}" method="POST"
+                                    <form action="{{ route('owner.book.destroy', $book->id) }}" method="POST"
                                         class="delete-form">
                                         @csrf
                                         @method('DELETE')

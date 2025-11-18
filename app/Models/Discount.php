@@ -13,11 +13,12 @@ class Discount extends Model
 
     protected $fillable = [
         'code',
-        'reduce'
+        'percentage',
+        'status'
     ];
 
-    public function discount()
+    public function transactions()
     {
-        return $this->hasOne(Discount::class);
+        return $this->hasMany(Transaction::class);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\BookType;
 use App\Models\Category;
 use Illuminate\Database\Seeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -13,24 +14,28 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
-        Category::create([
-            'name' => 'Fiction',
-            'book_type' => 'Novel'
-        ]);
-        
-        Category::create([
-            'name' => 'Non-Fiction',
-            'book_type' => 'Biography'
-        ]);
+        $categories = [
+            'Fiksi' => ['Novel', 'Cerpen', 'Drama'],
+            'Non-Fiksi' => ['Sejarah', 'Self-Help', 'Ekonomi'],
+            'Komik' => ['Manga', 'Komik Barat', 'Webtoon'],
+            'Ilmiah' => ['Fisika', 'Kimia', 'Biologi'],
+            'Biografi' => ['Otobiografi', 'Memoar'],
+            'Anak-anak' => ['Dongeng', 'Pendidikan Anak'],
+            'Agama' => ['Buku Agama', 'Filsafat'],
+            'Teknologi' => ['Pemrograman', 'AI & Machine Learning'],
+        ];
 
-        Category::create([
-            'name' => 'Science',
-            'book_type' => 'Educational'
-        ]);
+        foreach ($categories as $catName => $types) {
+            $category = Category::create([
+                'name' => $catName
+            ]);
 
-        Category::create([
-            'name' => 'History',
-            'book_type' => 'Documentary'
-        ]);
+            foreach ($types as $typeName) {
+                BookType::create([
+                    'category_id' => $category->id,
+                    'name' => $typeName
+                ]);
+            }
+        }
     }
 }

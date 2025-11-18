@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('logs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
-            $table->string('action', 255);
+            $table->string('action', 255)->default('');
             $table->string('module', 100)->nullable();
             $table->text('description')->nullable();
             $table->string('ip_address', 45)->nullable();

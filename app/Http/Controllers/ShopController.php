@@ -15,10 +15,12 @@ use Illuminate\Support\Facades\Auth;
 
 class ShopController extends Controller
 {
+    
     public function index(Request $request)
     {
         $query = Book::with(['category', 'bookType', 'bookDetail']);
 
+        // Search
         if ($request->filled('q')) {
             $q = $request->q;
             $query->where(function ($sub) use ($q) {
@@ -29,11 +31,36 @@ class ShopController extends Controller
             });
         }
 
+        // Filter by book_type
         if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+            $query->where('book_type_id', $request->category_id);
         }
 
-        $books = $query->latest()->paginate(9);
+        $books = $query->latest()->paginate(12);
+
+        // map untuk array
+        $booksArray = $books
+            ->map(function ($b) {
+                return [
+                    'id' => $b->id,
+                    'title' => $b->title,
+                    'book_code' => $b->book_code,
+                    'book_cover' => $b->book_cover,
+                    'author' => $b->author,
+                    'publisher' => $b->publisher,
+                    'publication_year' => $b->publication_year,
+                    'category' => [
+                        'category' => $b->category->name ?? '-',
+                        'book_type' => $b->bookType->name ?? '-',
+                    ],
+                    'book_detail' => [
+                        'stock' => $b->bookDetail->stock ?? '-',
+                        'price' => $b->bookDetail->price ?? '-',
+                    ],
+                ];
+            })
+            ->toArray();
+
         $categories = Category::with('bookTypes')
             ->get()
             ->map(function ($cat) {
@@ -47,31 +74,11 @@ class ShopController extends Controller
                     }),
                 ];
             });
-        return view('cashier.contents.transaction.transaction', compact('books', 'categories'));
+
+        return view('cashier.contents.transaction.transaction', compact('books', 'categories', 'booksArray'));
     }
 
-    public function indexCheckout()
-    {
-        $books = Book::with(['category', 'bookType', 'bookDetail'])->get();
-        $discounts = Discount::where('status', 1)->get();
-        $cart = session()->get('cart', []);
-
-        foreach ($cart as $book_id => $item) {
-            $bookDetail = BookDetail::where('book_id', $book_id)->first();
-            if ($bookDetail) {
-                $cart[$book_id]['stock'] = $bookDetail->stock;
-
-                if ($item['quantity'] > $bookDetail->stock) {
-                    $cart[$book_id]['quantity'] = $bookDetail->stock;
-                }
-            }
-        }
-
-        session()->put('cart', $cart);
-
-        return view('cashier.contents.transaction.transaction', compact('books', 'cart', 'discounts'));
-    }
-
+    // Form checkout
     public function showCheckoutForm()
     {
         $cart = session()->get('cart', []);
@@ -84,99 +91,21 @@ class ShopController extends Controller
         return view('cashier.contents.transaction.transaction-checkout', compact('cart', 'discounts'));
     }
 
-    public function processCheckout(Request $request)
-    {
-        $request->validate([
-            'customer_name' => 'required|string|max:255',
-            'payment_method' => 'required|in:cash,cashless',
-            'paid' => 'nullable|numeric',
-            'discount_id' => 'nullable|integer',
-        ]);
-
-        $cart = session()->get('cart', []);
-        if (empty($cart)) {
-            return back()->with('error', 'Keranjang kosong');
-        }
-
-        $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['quantity']);
-        $discountAmount = 0;
-
-        if ($request->discount_id) {
-            $discount = Discount::find($request->discount_id);
-            if ($discount && $discount->status == 1) {
-                $discountAmount = $subtotal * ($discount->percentage / 100);
-            }
-        }
-
-        $total = $subtotal - $discountAmount;
-        $spareChange = 0;
-
-        if ($request->payment_method == 'cash') {
-            if ($request->paid < $total) {
-                return back()->with('error', 'Jumlah bayar tidak mencukupi');
-            }
-            $spareChange = $request->paid - $total;
-        }
-
-        DB::beginTransaction();
-        try {
-            $transaction = Transaction::create([
-                'transaction_code' => 'TRX-' . strtoupper(uniqid()),
-                'customer_name' => $request->customer_name,
-                'payment_method' => $request->payment_method,
-                'discount_id' => $request->discount_id,
-                'total' => $total,
-                'paid' => $request->paid ?? $total,
-                'spare_change' => $spareChange,
-                'note' => $request->note,
-                'user_id' => Auth::id(),
-            ]);
-
-            foreach ($cart as $id => $item) {
-                TransactionItem::create([
-                    'transaction_id' => $transaction->id,
-                    'book_id' => $id,
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'subtotal' => $item['quantity'] * $item['price'],
-                ]);
-
-                // Kurangi stok
-                $bookDetail = BookDetail::where('book_id', $id)->first();
-                if ($bookDetail) {
-                    $bookDetail->decrement('stock', $item['quantity']);
-                }
-            }
-
-            Log::create([
-                'user_id' => Auth::id(),
-                'activity' => 'Melakukan transaksi penjualan: ' . $transaction->transaction_code,
-            ]);
-
-            DB::commit();
-            session()->forget('cart');
-
-            return redirect()->route('cashier.shop')->with('success', 'Transaksi berhasil disimpan');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal memproses transaksi');
-        }
-    }
-
-    // Tambahkan buku ke keranjang
+    // Tambah buku ke keranjang
     public function addToCart(Request $request)
     {
         $book = Book::with('bookDetail')->findOrFail($request->book_id);
         $cart = session()->get('cart', []);
 
-        // Cegah tambah kalau stok 0
-        if ($book->bookDetail->stock <= 0) {
+        // Cek stok
+        if (!$book->bookDetail || $book->bookDetail->stock <= 0) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Stok buku ini kosong',
             ]);
         }
 
+        // Jika sudah ada di cart, tambah quantity
         if (isset($cart[$book->id])) {
             if ($cart[$book->id]['quantity'] < $book->bookDetail->stock) {
                 $cart[$book->id]['quantity']++;
@@ -187,6 +116,7 @@ class ShopController extends Controller
                 ]);
             }
         } else {
+            // Tambah item baru ke cart
             $cart[$book->id] = [
                 'title' => $book->title,
                 'price' => $book->bookDetail->price,
@@ -197,31 +127,38 @@ class ShopController extends Controller
         }
 
         session()->put('cart', $cart);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Buku berhasil ditambahkan ke keranjang',
         ]);
     }
 
-    // Ubah jumlah di keranjang
+    // Update quantity di keranjang
     public function updateCart(Request $request)
     {
         $cart = session()->get('cart', []);
         $book = Book::with('bookDetail')->findOrFail($request->book_id);
 
-        if (isset($cart[$book->id])) {
-            $quantity = max(1, (int) $request->quantity);
-
-            if ($quantity > $book->bookDetail->stock) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Stok tidak mencukupi',
-                ]);
-            }
-
-            $cart[$book->id]['quantity'] = $quantity;
-            session()->put('cart', $cart);
+        if (!isset($cart[$book->id])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Item tidak ditemukan di keranjang',
+            ]);
         }
+
+        $quantity = max(1, (int) $request->quantity);
+
+        // Cek stok
+        if ($quantity > $book->bookDetail->stock) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Stok tidak mencukupi (tersedia: ' . $book->bookDetail->stock . ')',
+            ]);
+        }
+
+        $cart[$book->id]['quantity'] = $quantity;
+        session()->put('cart', $cart);
 
         return response()->json([
             'status' => 'success',
@@ -239,59 +176,37 @@ class ShopController extends Controller
             session()->put('cart', $cart);
         }
 
-        return back()->with('success', 'Item berhasil dihapus dari keranjang');
+        return redirect()->back()->with('success', 'Item berhasil dihapus dari keranjang');
     }
 
-    // Checkout transaksi
+    // Proses checkout
     public function checkout(Request $request)
     {
         $cart = session()->get('cart', []);
 
         if (empty($cart)) {
-            return back()->withErrors(['error' => 'Keranjang masih kosong.']);
+            return redirect()->route('cashier.shop')->with('error', 'Keranjang masih kosong.');
         }
 
         // Validasi input
-        $request->validate(
-            [
-                'customer_name' => 'required|string|max:255',
-                'payment_method' => 'required|in:cash,cashless',
-                'paid' => 'required|numeric|min:0',
-                'spare_change' => 'required|numeric|min:0',
-                'note' => 'nullable|string',
-                'discount_id' => 'nullable|exists:discounts,id',
-            ],
-            [
-                'customer_name.required' => 'Nama pelanggan wajib diisi.',
-                'customer_name.string' => 'Nama pelanggan harus berupa teks.',
-                'customer_name.max' => 'Nama pelanggan terlalu panjang.',
-
-                'payment_method.required' => 'Metode pembayaran wajib dipilih.',
-                'payment_method.in' => 'Metode pembayaran tidak valid.',
-
-                'paid.required' => 'Jumlah pembayaran wajib diisi.',
-                'paid.numeric' => 'Jumlah pembayaran harus berupa angka.',
-                'paid.min' => 'Jumlah pembayaran tidak boleh kurang dari 0.',
-
-                'spare_change.required' => 'Kembalian wajib diisi.',
-                'spare_change.numeric' => 'Kembalian harus berupa angka.',
-                'spare_change.min' => 'Kembalian tidak boleh kurang dari 0.',
-
-                'note.string' => 'Catatan harus berupa teks.',
-
-                'discount_id.exists' => 'Diskon tidak ditemukan.',
-            ],
-        );
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'payment_method' => 'required|in:cash,cashless',
+            'paid' => 'required|numeric|min:0',
+            'discount_id' => 'nullable|exists:discounts,id',
+            'note' => 'nullable|string|max:500',
+        ]);
 
         DB::beginTransaction();
+
         try {
             // Hitung subtotal
             $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['quantity']);
 
             // Hitung diskon jika ada
             $discountAmount = 0;
-            if ($request->discount_id) {
-                $discount = Discount::find($request->discount_id);
+            if (!empty($validated['discount_id'])) {
+                $discount = Discount::find($validated['discount_id']);
                 if ($discount && $discount->status == 1) {
                     $discountAmount = $subtotal * ($discount->percentage / 100);
                 }
@@ -299,25 +214,41 @@ class ShopController extends Controller
 
             $total = $subtotal - $discountAmount;
 
+            // Validasi pembayaran cash
+            if ($validated['payment_method'] === 'cash' && $validated['paid'] < $total) {
+                return redirect()->route('cashier.shop')->with('error', 'Jumlah bayar tidak mencukupi.');
+            }
+
+            $spareChange = $validated['payment_method'] === 'cash' ? $validated['paid'] - $total : 0;
+
             // Generate transaction code
             $transactionCode = 'TRX-' . date('Ymd') . '-' . str_pad(Transaction::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
 
             // Buat transaksi
             $transaction = Transaction::create([
                 'user_id' => Auth::id(),
-                'discount_id' => $request->discount_id,
-                'customer_name' => $request->customer_name,
-                'subtotal' => $total,
-                'paid' => $request->paid,
-                'spare_change' => $request->spare_change,
+                'discount_id' => $validated['discount_id'] ?? null,
+                'customer_name' => $validated['customer_name'],
+                'subtotal' => $subtotal,
+                'total' => $total,
+                'paid' => $validated['paid'],
+                'spare_change' => $spareChange,
                 'transaction_date' => now(),
-                'transaction_type' => 'sale',
-                'payment_method' => $request->payment_method,
-                'note' => $request->note ?? 'Transaksi penjualan toko buku',
+                'payment_method' => $validated['payment_method'],
+                'note' => $validated['note'] ?? 'Transaksi penjualan toko buku',
             ]);
 
-            // Buat transaction items dan update stok
+            // Buat transaction items & update stok
             foreach ($cart as $bookId => $item) {
+                $bookDetail = BookDetail::where('book_id', $bookId)->first();
+
+                if (!$bookDetail || $bookDetail->stock < $item['quantity']) {
+                    DB::rollBack();
+                    return redirect()
+                        ->route('cashier.shop')
+                        ->with('error', 'Stok buku "' . $item['title'] . '" tidak mencukupi.');
+                }
+
                 TransactionItem::create([
                     'transaction_id' => $transaction->id,
                     'book_id' => $bookId,
@@ -327,41 +258,32 @@ class ShopController extends Controller
                     'subtotal' => $item['price'] * $item['quantity'],
                 ]);
 
-                // Update stok
-                $bookDetail = BookDetail::where('book_id', $bookId)->first();
-                if ($bookDetail) {
-                    $bookDetail->decrement('stock', $item['quantity']);
-                }
+                $bookDetail->decrement('stock', $item['quantity']);
             }
 
             // Log aktivitas
             Log::create([
                 'user_id' => Auth::id(),
-                'action' => 'Transaksi Penjualan',
-                'module' => 'Kasir',
-                'description' => "Melakukan transaksi penjualan dengan kode {$transactionCode} untuk pelanggan {$request->customer_name}",
+                'action' => 'Melakukan Penjualan',
+                'module' => 'Transaksi',
+                'description' => "Melakukan transaksi penjualan dengan kode {$transactionCode} untuk pelanggan {$validated['customer_name']}",
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
 
             DB::commit();
+
+            // Hapus cart
             session()->forget('cart');
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Transaksi berhasil diproses',
-                'transaction_code' => $transactionCode,
-                'total' => $total,
-            ]);
+            return redirect()
+                ->route('cashier.shop')
+                ->with('success', "Transaksi berhasil diproses. Kode: {$transactionCode}, Total: {$total}, Kembalian: {$spareChange}");
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(
-                [
-                    'status' => 'error',
-                    'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
-                ],
-                500,
-            );
+            return redirect()
+                ->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 }

@@ -40,7 +40,7 @@ class DashboardController extends Controller
         $x['transactionsPerMonth'] = Transaction::select(DB::raw('MONTH(transaction_date) as month'), DB::raw('COUNT(*) as total'))->groupBy('month')->orderBy('month')->get()->mapWithKeys(fn($t) => [$t->month => $t->total]);
 
         // Tambahan khusus kasir
-        if ($user->role == 'cashier') {
+        if (in_array($user->role, ['cashier', 'owner'])) {
             // Transaksi hari ini
             $today = now()->toDateString();
 
@@ -78,14 +78,11 @@ class DashboardController extends Controller
         }
 
         // Arahkan ke dashboard sesuai role
-        if ($user->role == 'admin') {
-            return view('admin.contents.dashboard', $x);
-        } elseif ($user->role == 'cashier') {
-            return view('cashier.contents.dashboard', $x);
-        } elseif ($user->role == 'owner') {
-            return view('owner.dashboard', $x);
-        } else {
-            abort(403, 'Unauthorized Action');
-        }
+        return match ($user->role) {
+            'admin' => view('admin.contents.dashboard', $x),
+            'cashier' => view('cashier.contents.dashboard', $x),
+            'owner' => view('owner.contents.dashboard', $x),
+            default => abort(403, 'Unauthorized Action'),
+        };
     }
 }

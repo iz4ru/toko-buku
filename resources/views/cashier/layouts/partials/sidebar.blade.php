@@ -14,7 +14,7 @@
             
             <!-- Transaksi -->
             <li>
-                <x-nav-link href="{{ route('cashier.shop') }}" :active="request()->routeIs('cashier.shop')">
+                <x-nav-link href="{{ route('cashier.shop') }}" :active="request()->routeIs(['cashier.shop', 'cashier.checkout.form'])">
                     <i class="fa-solid fa-cart-shopping text-md"></i>
                     <span class="ml-3">Transaksi</span>
                 </x-nav-link>
@@ -23,7 +23,7 @@
 
             <!-- Riwayat Transaksi -->
             <li>
-                <x-nav-link href="{{ route('admin.transaction') }}" :active="request()->routeIs(['admin.transaction', 'admin.transaction.detail'])">
+                <x-nav-link href="{{ route('cashier.transaction') }}" :active="request()->routeIs(['cashier.transaction', 'cashier.transaction.edit', 'cashier.transaction.receipt'])">
                     <i class="fa-solid fa-money-bill text-md"></i>
                     <span class="ml-3">Riwayat Transaksi</span>
                 </x-nav-link>
@@ -32,7 +32,7 @@
 
             <!-- Log Aktivitas-->
             <li>
-                <x-nav-link href="{{ route('admin.log') }}" :active="request()->routeIs(['admin.log'])">
+                <x-nav-link href="{{ route('cashier.log') }}" :active="request()->routeIs(['cashier.log'])">
                     <i class="fa-solid fa-clock-rotate-left text-md"></i>
                     <span class="ml-3">Log Aktivitas</span>
                 </x-nav-link>

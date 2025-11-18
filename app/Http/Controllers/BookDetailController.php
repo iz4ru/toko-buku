@@ -4,28 +4,53 @@ namespace App\Http\Controllers;
 
 use App\Models\BookDetail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class BookDetailController extends Controller
 {
     public function index()
     {
-        $x['bookDetails'] = BookDetail::orderByDesc('created_at')->get();
+        $bookDetails = BookDetail::orderByDesc('created_at')->get();
 
-        return view('admin.contents.book-detail-management.book-detail', $x);
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.book-detail-management.book-detail', [
+                'bookDetails' => $bookDetails,
+            ]);
+        }
+
+        return view('admin.contents.book-detail-management.book-detail', [
+            'bookDetails' => $bookDetails,
+        ]);
     }
 
     public function editStock($id)
     {
-        $x['bookDetail'] = BookDetail::findOrFail($id);
+        $bookDetail = BookDetail::findOrFail($id);
 
-        return view('admin.contents.book-detail-management.book-detail-edit-stock', $x);
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.book-detail-management.book-detail-edit-stock', [
+                'bookDetail' => $bookDetail,
+            ]);
+        }
+
+        return view('admin.contents.book-detail-management.book-detail-edit-stock', [
+            'bookDetail' => $bookDetail,
+        ]);
     }
 
     public function editPrice($id)
     {
-        $x['bookDetail'] = BookDetail::findOrFail($id);
+        $bookDetail = BookDetail::findOrFail($id);
 
-        return view('admin.contents.book-detail-management.book-detail-edit-price', $x);
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.book-detail-management.book-detail-edit-price', [
+                'bookDetail' => $bookDetail,
+            ]);
+        }
+
+        return view('admin.contents.book-detail-management.book-detail-edit-price', [
+            'bookDetail' => $bookDetail,
+        ]);
     }
 
     public function updateStock(Request $request, $id)
@@ -51,24 +76,24 @@ class BookDetailController extends Controller
         if ($request->action === 'add') {
             if ($bookDetail->stock + $amount > 2147483647) {
                 return back()
-                    ->withErrors([
-                        'amount' => 'Total stok melebihi batas maksimum.',
-                    ])
+                    ->withErrors(['amount' => 'Total stok melebihi batas maksimum.'])
                     ->withInput();
             }
             $bookDetail->stock += $amount;
         } else {
             if ($bookDetail->stock < $amount) {
                 return back()
-                    ->withErrors([
-                        'amount' => 'Stok tidak cukup untuk dikurangi. Stok saat ini: ' . $bookDetail->stock . '.',
-                    ])
+                    ->withErrors(['amount' => 'Stok tidak cukup untuk dikurangi. Stok saat ini: ' . $bookDetail->stock . '.'])
                     ->withInput();
             }
             $bookDetail->stock -= $amount;
         }
 
         $bookDetail->save();
+
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.book_detail')->with('success', 'Data stok berhasil diperbarui.');
+        }
 
         return redirect()->route('admin.book_detail')->with('success', 'Data stok berhasil diperbarui.');
     }
@@ -91,14 +116,16 @@ class BookDetailController extends Controller
 
         if ($request->price > 2147483647) {
             return back()
-                ->withErrors([
-                    'price' => 'Harga melebihi batas maksimum yang diizinkan.',
-                ])
+                ->withErrors(['price' => 'Harga melebihi batas maksimum yang diizinkan.'])
                 ->withInput();
         }
 
         $bookDetail->price = $request->price;
         $bookDetail->save();
+
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.book_detail')->with('success', 'Harga buku berhasil diperbarui.');
+        }
 
         return redirect()->route('admin.book_detail')->with('success', 'Harga buku berhasil diperbarui.');
     }

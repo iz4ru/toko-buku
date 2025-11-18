@@ -1,5 +1,5 @@
-@extends('admin.layouts.app')
-@section('title', 'Papery | Kelola Buku')
+@extends('owner.layouts.app')
+@section('title', 'Papery | Kelola Stok & Harga Buku')
 @section('content')
 
     <div class="p-4 border-2 border-gray-200 border-dashed rounded-lg w-full mt-14">
@@ -29,17 +29,10 @@
 
         <div class="flex gap-4 justify-between">
             <div>
-                <h1 class="text-2xl font-semibold text-gray-600">Kelola Buku</h1>
-                <p class="text-gray-400">Atur daftar buku, detail, kategori, dan stok dengan cepat dan mudah.</p>
+                <h1 class="text-2xl font-semibold text-gray-600">Kelola Stok & Harga Buku</h1>
+                <p class="text-gray-400">Pantau dan kelola stok serta harga buku dengan cepat dan mudah setiap saat.</p>
             </div>
         </div>
-
-        <a href="{{ route('admin.book.create') }}"
-            class="inline-flex cursor-pointer items-center px-5 py-2.5 mt-4 gap-2 text-sm font-medium text-center text-white bg-[#1779FC] rounded-lg focus:ring-4 focus:ring-blue-300 hover:bg-[#DEECFF] hover:text-[#1779FC] active:scale-[0.98]
-        transition-all duration-300 ease-out">
-            <i class="fa-solid fa-plus text-sm"></i>
-            <span>Tambah Buku</span>
-        </a>
 
         <div class="my-4 border-t-2 border-dashed border-gray-300 w-full"></div>
 
@@ -69,16 +62,6 @@
                         </th>
                         <th>
                             <span class="flex items-center">
-                                Kode
-                                <svg class="w-4 h-4 ms-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
-                                    width="24" height="24" fill="none" viewBox="0 0 24 24">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                        stroke-width="2" d="m8 15 4 4 4-4m0-6-4-4-4 4" />
-                                </svg>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="flex items-center">
                                 Judul
                                 <svg class="w-4 h-4 ms-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
                                     width="24" height="24" fill="none" viewBox="0 0 24 24">
@@ -89,7 +72,7 @@
                         </th>
                         <th>
                             <span class="flex items-center">
-                                Kategori
+                                Stok
                                 <svg class="w-4 h-4 ms-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
                                     width="24" height="24" fill="none" viewBox="0 0 24 24">
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -99,7 +82,7 @@
                         </th>
                         <th>
                             <span class="flex items-center">
-                                Jenis
+                                Harga
                                 <svg class="w-4 h-4 ms-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
                                     width="24" height="24" fill="none" viewBox="0 0 24 24">
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -120,37 +103,41 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($books as $book)
+                    @foreach ($bookDetails as $bookDetail)
                         <tr class="border-b hover:bg-gray-50 transition-all">
                             <td class="px-6 py-4">{{ $loop->iteration }}</td>
                             <td class="px-6 py-4">
-                                <img src="{{ Storage::url($book->book_cover) }}" alt="{{ $book->title }}"
-                                    class="w-12 h-16 object-cover rounded">
+                                <img src="{{ Storage::url($bookDetail->book->book_cover) }}"
+                                    alt="{{ $bookDetail->book->title }}" class="w-12 h-16 object-cover rounded">
                             </td>
-                            <td class="px-6 py-4">{{ $book->book_code }}</td>
-                            <td class="px-6 py-4 font-semibold text-gray-600">{{ $book->title }}</td>
-                            <td class="px-6 py-4">{{ $book->category->name }}</td>
-                            <td class="px-6 py-4">{{ $book->bookType->name }}</td>
+                            <td class="px-6 py-4 font-semibold text-gray-600">{{ $bookDetail->book->title }}</td>
+                            <td class="px-6 py-4">
+                                @if ($bookDetail->stock > 10)
+                                    <span class="text-[#1779FC] font-bold">
+                                        {{ $bookDetail->stock }} <span class="text-gray-500 font-semibold">pcs</span>
+                                    </span>
+                                @elseif ($bookDetail->stock > 0)
+                                    <span class="text-[#F3AD21] font-bold">
+                                        {{ $bookDetail->stock }} <span class="text-gray-500 font-semibold">pcs</span>
+                                    </span>
+                                @else
+                                    <span class="text-[#EF4444] font-bold">
+                                        Stok Kosong
+                                    </span>
+                                    <p>( {{ $bookDetail->stock }} <span class="text-gray-500 font-semibold">pcs</span> )
+                                    </p>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4">Rp{{ number_format($bookDetail?->price ?? 0, 2, ',', '.') }}</td>
                             <td class="px-6 py-4">
                                 <div class="flex gap-2">
-
-                                    <button type="button" class="detail-btn cursor-pointer text-gray-700 hover:underline"
-                                        onclick="showDetail({{ $book->id }})">Detail</button>
-
+                                    <a href="{{ route('owner.book_detail.edit.stock', $bookDetail->id) }}"
+                                        class="text-[#1776FC] hover:underline font-medium focus:outline-none">Edit Stok</a>
                                     <p class="font-bold text-gray-300">|</p>
-
-                                    <a href="{{ route('admin.book.edit', $book->id) }}"
-                                        class="text-[#1776FC] hover:underline font-medium focus:outline-none">Edit</a>
-                                    <p class="font-bold text-gray-300">|</p>
-
-                                    <form action="{{ route('admin.book.destroy', $book->id) }}" method="POST"
-                                        class="delete-form">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="button"
-                                            class="delete-btn cursor-pointer text-red-500 hover:underline"
-                                            data-book="{{ $book->title }}">Hapus</button>
-                                    </form>
+                                    <a href="{{ route('owner.book_detail.edit.price', $bookDetail->id) }}"
+                                        class="text-[#1776FC] hover:underline font-medium focus:outline-none">Edit
+                                        Harga</a>
+                                </div>
                             </td>
                         </tr>
                     @endforeach
@@ -200,122 +187,38 @@
         </script>
 
         <script>
-            function showDetail(id) {
-                const books = @json($booksArray);
+            function toggleList(button) {
+                const list = button.nextElementSibling;
+                const isHidden = list.classList.contains('hidden');
 
-                let item = books.find(b => b.id === id);
-                if (!item) return;
-
-                Swal.fire({
-                    width: 720,
-                    padding: "1.5rem",
-                    background: "#ffffff",
-                    showCloseButton: false,
-                    confirmButtonText: "Tutup",
-                    confirmButtonColor: "#1779FC",
-                    customClass: {
-                        popup: 'rounded-lg p-6'
-                    },
-                    html: `
-        <div class="flex flex-col items-center w-full">
-            <!-- Book Cover -->
-            <div class="mb-6">
-                <img src="/storage/${item.book_cover}" class="w-40 h-56 object-cover rounded-lg border-2 border-gray-200">
-            </div>
-            
-            <!-- Title -->
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">${item.title}</h2>
-            
-            <!-- Details Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
-                <!-- Kode -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-barcode text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Kode</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${item.book_code}</p>
-                </div>
-                
-                <!-- Stok -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-cubes text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Stok</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${item.book_detail.stock} pcs</p>
-                </div>
-                
-                <!-- Penerbit -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-building text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Penerbit</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${item.publisher}</p>
-                </div>
-                
-                <!-- Harga -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-dollar-sign text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Harga</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold text-lg">Rp ${new Intl.NumberFormat('id-ID').format(item.book_detail.price)}</p>
-                </div>
-                
-                <!-- Pengarang -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-user text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Pengarang</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${item.author}</p>
-                </div>
-                
-                <!-- Tahun Terbit -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-calendar text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Tahun Terbit</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${new Date(item.publication_year).getFullYear()}</p>
-                </div>
-                
-                <!-- Kategori -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-tags text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Kategori</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${item.category.category}</p>
-                </div>
-                
-                <!-- Jenis -->
-                <div class="bg-gray-50 p-4 rounded-lg border-gray-300 border">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-list text-[#1779FC]"></i>
-                        <p class="font-medium text-gray-700 text-sm">Jenis</p>
-                    </div>
-                    <p class="text-gray-900 font-semibold">${item.category.book_type}</p>
-                </div>
-            </div>
-        </div>
-        `
-                });
+                if (isHidden) {
+                    list.classList.remove('hidden');
+                    setTimeout(() => {
+                        list.classList.remove('opacity-0');
+                        list.classList.remove('max-h-0');
+                        list.classList.add('opacity-100');
+                        list.classList.add('max-h-96');
+                    }, 10);
+                } else {
+                    list.classList.remove('opacity-100');
+                    list.classList.remove('max-h-96');
+                    list.classList.add('opacity-0');
+                    list.classList.add('max-h-0');
+                    setTimeout(() => {
+                        list.classList.add('hidden');
+                    }, 300);
+                }
             }
         </script>
 
         <script>
-            document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('delete-btn')) {
-                    const button = e.target;
-                    const form = button.closest('.delete-form');
-                    const bookName = button.getAttribute('data-book');
-
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const form = this.closest('.delete-form');
+                    const categoryName = this.getAttribute('data-category');
                     Swal.fire({
-                        title: `Yakin hapus buku "${bookName}"?`,
-                        text: 'Data buku ini akan hilang permanen.',
+                        title: `Yakin hapus kategori "${categoryName}"?`,
+                        text: 'Data kategori ini akan hilang permanen bersama dengan jenis buku.',
                         icon: 'warning',
                         iconColor: '#EF4444',
                         showCancelButton: true,
@@ -328,7 +231,7 @@
                             form.submit();
                         }
                     });
-                }
+                });
             });
         </script>
     @endpush

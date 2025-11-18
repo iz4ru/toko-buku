@@ -14,6 +14,7 @@ class Transaction extends Model
     protected $fillable = [
         'user_id',
         'discount_id',
+        'customer_name',
         'subtotal',
         'paid',
         'spare_change',
@@ -40,6 +41,6 @@ class Transaction extends Model
 
     public function discount()
     {
-        return $this->belongsTo(Discount::class);
+        return $this->belongsTo(Discount::class, 'discount_id');
     }
 }

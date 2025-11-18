@@ -46,7 +46,7 @@
 
             <!-- Kelola Data Kasir -->
             <li>
-                <x-nav-link href="{{ route('admin.employee') }}" :active="request()->routeIs(['admin.employee'])">
+                <x-nav-link href="{{ route('admin.employee') }}" :active="request()->routeIs(['admin.employee', 'admin.employee.edit'])">
                     <i class="fa-solid fa-user-group text-md"></i>
                     <span class="ml-3">Kelola Data Kasir</span>
                 </x-nav-link>

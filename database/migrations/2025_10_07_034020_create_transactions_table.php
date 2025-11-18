@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('discount_id')->nullable();
-            $table->string('customer_name')->default('none');
+            $table->string('customer_name');
             $table->decimal('subtotal', 10, 2);
             $table->decimal('paid', 10, 2);
             $table->decimal('spare_change', 10, 2)->default(0);

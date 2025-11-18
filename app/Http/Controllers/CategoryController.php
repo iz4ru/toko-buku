@@ -5,30 +5,45 @@ namespace App\Http\Controllers;
 use App\Models\BookType;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        $x['categories'] = Category::orderByDesc('created_at')->get();
+        $categories = Category::orderByDesc('created_at')->get();
 
-        return view('admin.contents.category-management.category', $x);
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.category-management.category', [
+                'categories' => $categories,
+            ]);
+        }
+
+        return view('admin.contents.category-management.category', [
+            'categories' => $categories,
+        ]);
     }
 
     public function create()
     {
-        $x['categories'] = Category::all();
+        $categories = Category::all();
 
-        return view('admin.contents.category-management.category-create', $x);
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.category-management.category-create', [
+                'categories' => $categories,
+            ]);
+        }
+
+        return view('admin.contents.category-management.category-create', [
+            'categories' => $categories,
+        ]);
     }
 
     public function store(Request $request)
     {
         if (empty($request->book_types) || !collect($request->book_types)->filter(fn($t) => trim($t) != '')->count()) {
             return back()
-                ->withErrors([
-                    'book_types' => 'Isi jenis buku minimal satu.',
-                ])
+                ->withErrors(['book_types' => 'Isi jenis buku minimal satu.'])
                 ->withInput();
         }
 
@@ -48,9 +63,8 @@ class CategoryController extends Controller
                 'book_types.*.max' => 'Setiap tipe buku maksimal 255 karakter.',
             ],
         );
-        $category = Category::create([
-            'name' => $request->category_name,
-        ]);
+
+        $category = Category::create(['name' => $request->category_name]);
 
         if ($request->book_types) {
             foreach ($request->book_types as $type) {
@@ -63,13 +77,26 @@ class CategoryController extends Controller
             }
         }
 
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.category')->with('success', 'Kategori dan jenis buku berhasil ditambahkan.');
+        }
+
         return redirect()->route('admin.category')->with('success', 'Kategori dan jenis buku berhasil ditambahkan.');
     }
 
     public function edit($id)
     {
-        $x['category'] = Category::with('bookTypes')->findOrFail($id);
-        return view('admin.contents.category-management.category-edit', $x);
+        $category = Category::with('bookTypes')->findOrFail($id);
+
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.category-management.category-edit', [
+                'category' => $category,
+            ]);
+        }
+
+        return view('admin.contents.category-management.category-edit', [
+            'category' => $category,
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -93,13 +120,9 @@ class CategoryController extends Controller
             ],
         );
 
-        // update nama kategori
         $category->update(['name' => $request->category_name]);
-
-        // hapus semua tipe buku lama
         $category->bookTypes()->delete();
 
-        // tambahin ulang tipe buku yang baru diinput
         if ($request->book_types) {
             foreach ($request->book_types as $type) {
                 if (trim($type) != '') {
@@ -111,6 +134,10 @@ class CategoryController extends Controller
             }
         }
 
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.category')->with('success', 'Kategori dan jenis buku berhasil diperbarui.');
+        }
+
         return redirect()->route('admin.category')->with('success', 'Kategori dan jenis buku berhasil diperbarui.');
     }
 
@@ -119,12 +146,22 @@ class CategoryController extends Controller
         $category = Category::findOrFail($id);
 
         if ($category->book()->count() > 0) {
+            if (Auth::user()->role === 'owner') {
+                return redirect()
+                    ->route('owner.category')
+                    ->withErrors(['error' => 'Kategori ini sudah dipakai untuk buku tertentu, tidak bisa dihapus.']);
+            }
+
             return redirect()
                 ->route('admin.category')
                 ->withErrors(['error' => 'Kategori ini sudah dipakai untuk buku tertentu, tidak bisa dihapus.']);
         }
 
         $category->delete();
+
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.category')->with('success', 'Kategori berhasil dihapus.');
+        }
 
         return redirect()->route('admin.category')->with('success', 'Kategori berhasil dihapus.');
     }

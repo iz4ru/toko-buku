@@ -10,6 +10,7 @@ use App\Models\BookDetail;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class BookController extends Controller
 {
@@ -41,6 +42,13 @@ class BookController extends Controller
             })
             ->toArray();
 
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.book-management.book', [
+                'books' => $books,
+                'booksArray' => $booksArray,
+            ]);
+        }
+
         return view('admin.contents.book-management.book', [
             'books' => $books,
             'booksArray' => $booksArray,
@@ -50,6 +58,11 @@ class BookController extends Controller
     public function create()
     {
         $x['categories'] = Category::with('bookTypes')->get();
+
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.book-management.book-create', $x);
+        }
+
         return view('admin.contents.book-management.book-create', $x);
     }
 
@@ -61,56 +74,35 @@ class BookController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate(
-            [
-                'title' => 'required|string|max:255',
-                'author' => 'required|string|max:255',
-                'publisher' => 'required|string|max:255',
-                'category' => 'required|exists:categories,id',
-                'book_type' => 'required|exists:book_types,id',
-                'publication_year' => 'required|date_format:Y-m',
-                'price' => 'required|numeric|min:0',
-                'stock' => 'required|integer|min:0',
-                'description' => 'nullable|string',
-                'book_cover' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-            ],
-            [
-                'category.exists' => 'Kategori tidak valid.',
-                'book_type.exists' => 'Jenis buku tidak valid.',
-                'price.min' => 'Harga tidak boleh kurang dari Rp0.',
-                'book_cover.mimes' => 'Jenis file yang diupload harus berupa jpg, jpeg atau png.',
-            ],
-        );
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'author' => 'required|string|max:255',
+            'publisher' => 'required|string|max:255',
+            'category' => 'required|exists:categories,id',
+            'book_type' => 'required|exists:book_types,id',
+            'publication_year' => 'required|date_format:Y-m',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'description' => 'nullable|string',
+            'book_cover' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
 
-        // Ambil kategori dan jenis buku
         $category = Category::findOrFail($request->category);
         $bookType = BookType::findOrFail($request->book_type);
 
-        // Ambil inisial dua huruf pertama
         $categoryInitial = strtoupper(substr($category->name, 0, 2));
         $typeInitial = strtoupper(substr($bookType->name, 0, 2));
 
-        // Ambil buku terakhir dari kategori + tipe yang sama
         $lastBook = Book::where('category_id', $category->id)->where('book_type_id', $bookType->id)->latest('id')->first();
 
-        // Ambil angka terakhir dari kode sebelumnya (4 digit terakhir)
-        if ($lastBook && preg_match('/\d{4}$/', $lastBook->book_code, $matches)) {
-            $lastNumber = intval($matches[0]);
-        } else {
-            $lastNumber = 0;
-        }
+        $lastNumber = $lastBook && preg_match('/\d{4}$/', $lastBook->book_code, $matches) ? intval($matches[0]) : 0;
 
-        // Tambah 1 dan padding biar tetap 4 digit
         $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-
-        // Bentuk kode baru
         $bookCode = $categoryInitial . $typeInitial . $newNumber;
 
-        // Simpan cover
         $coverName = Str::slug($request->title) . '.' . $request->file('book_cover')->getClientOriginalExtension();
         $path = $request->file('book_cover')->storeAs('book_covers', $coverName, 'public');
 
-        // Simpan buku
         $book = Book::create([
             'book_code' => $bookCode,
             'title' => $request->title,
@@ -135,6 +127,10 @@ class BookController extends Controller
             'description' => 'Menambahkan buku baru',
         ]);
 
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.book')->with('success', 'Buku baru berhasil ditambahkan.');
+        }
+
         return redirect()->route('admin.book')->with('success', 'Buku baru berhasil ditambahkan.');
     }
 
@@ -146,15 +142,12 @@ class BookController extends Controller
         $catInit = strtoupper(substr($category->name, 0, 2));
         $typeInit = strtoupper(substr($type->name, 0, 2));
 
-        // ganti 'type_id' jadi 'book_type_id'
         $lastBook = Book::where('category_id', $categoryId)->where('book_type_id', $typeId)->latest('id')->first();
 
         $lastNumber = $lastBook ? intval(substr($lastBook->book_code, -4)) : 0;
         $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
 
-        $newCode = $catInit . $typeInit . $newNumber;
-
-        return response()->json(['code' => $newCode]);
+        return response()->json(['code' => $catInit . $typeInit . $newNumber]);
     }
 
     public function edit($id)
@@ -164,6 +157,10 @@ class BookController extends Controller
         $x['categories'] = Category::all();
         $x['bookTypes'] = BookType::where('category_id', $book->category_id)->get();
 
+        if (Auth::user()->role === 'owner') {
+            return view('owner.contents.book-management.book-edit', $x);
+        }
+
         return view('admin.contents.book-management.book-edit', $x);
     }
 
@@ -171,35 +168,20 @@ class BookController extends Controller
     {
         $book = Book::findOrFail($id);
 
-        $validated = $request->validate(
-            [
-                'title' => 'required|string|max:255|unique:books,title,' . $book->id,
-                'author' => 'required|string|max:255',
-                'publisher' => 'required|string|max:255',
-                'publication_year' => 'required|date_format:Y-m',
-                'description' => 'nullable|string|max:1000',
-                'book_cover' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            ],
-            [
-                'title.required' => 'Judul buku wajib diisi.',
-                'title.unique' => 'Judul buku sudah ada.',
-                'author.required' => 'Nama penulis wajib diisi.',
-                'publisher.required' => 'Nama penerbit wajib diisi.',
-                'publication_year.required' => 'Tahun terbit wajib diisi.',
-                'publication_year.date_format' => 'Format tahun terbit harus Y-m (contoh: 2025-01).',
-                'description.max' => 'Deskripsi maksimal 1000 karakter.',
-                'book_cover.image' => 'File cover harus berupa gambar.',
-                'book_cover.mimes' => 'Format gambar harus jpg, jpeg, atau png.',
-                'book_cover.max' => 'Ukuran file cover maksimal 2MB.',
-            ],
-        );
+        $validated = $request->validate([
+            'title' => 'required|string|max:255|unique:books,title,' . $book->id,
+            'author' => 'required|string|max:255',
+            'publisher' => 'required|string|max:255',
+            'publication_year' => 'required|date_format:Y-m',
+            'description' => 'nullable|string|max:1000',
+            'book_cover' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
 
         if ($request->hasFile('book_cover')) {
             if ($book->book_cover && Storage::exists('public/' . $book->book_cover)) {
                 Storage::delete('public/' . $book->book_cover);
             }
-            $coverPath = $request->file('book_cover')->store('book_covers', 'public');
-            $validated['book_cover'] = $coverPath;
+            $validated['book_cover'] = $request->file('book_cover')->store('book_covers', 'public');
         }
 
         $book->update([
@@ -217,6 +199,10 @@ class BookController extends Controller
             'description' => 'Mengedit data buku',
         ]);
 
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.book')->with('success', 'Data buku berhasil diperbarui!');
+        }
+
         return redirect()->route('admin.book')->with('success', 'Data buku berhasil diperbarui!');
     }
 
@@ -224,21 +210,22 @@ class BookController extends Controller
     {
         $book = Book::findOrFail($id);
 
-        if ($book->categories()->count() > 0) {
+        if ($book->category()->count() > 0) {
+            if (Auth::user()->role === 'owner') {
+                return redirect()
+                    ->route('owner.book')
+                    ->withErrors(['error' => 'Buku tidak bisa dihapus karena sudah memiliki kategori.']);
+            }
             return redirect()
                 ->route('admin.book')
                 ->withErrors(['error' => 'Buku tidak bisa dihapus karena sudah memiliki kategori.']);
         }
 
-        // Hapus cover kalau ada di storage
         if ($book->book_cover && Storage::exists('public/' . $book->book_cover)) {
             Storage::delete('public/' . $book->book_cover);
         }
 
-        // Hapus book_detail dulu (karena foreign key)
         $book->bookDetail()->delete();
-
-        // Hapus data buku
         $book->delete();
 
         Log::create([
@@ -246,6 +233,10 @@ class BookController extends Controller
             'module' => 'Manajemen Buku',
             'description' => 'Menghapus data buku',
         ]);
+
+        if (Auth::user()->role === 'owner') {
+            return redirect()->route('owner.book')->with('success', 'Data buku berhasil dihapus!');
+        }
 
         return redirect()->route('admin.book')->with('success', 'Data buku berhasil dihapus!');
     }
